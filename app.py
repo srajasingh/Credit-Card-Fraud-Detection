@@ -10,7 +10,6 @@ Run locally:
 
 import io
 import warnings
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -27,7 +26,6 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from imblearn.over_sampling import SMOTE
 
 warnings.filterwarnings("ignore")
 
@@ -45,7 +43,7 @@ st.set_page_config(
 # ─────────────────────────────────────────────
 st.title("🛡️ Credit Card Fraud Detection")
 st.markdown(
-    "An end-to-end ML pipeline using **SMOTE + Random Forest** on the "
+    "An end-to-end ML pipeline using **class-weight balancing + Random Forest** on the "
     "[Kaggle Credit Card Fraud dataset](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud)."
 )
 st.divider()
@@ -90,19 +88,27 @@ def train_pipeline(csv_bytes, test_sz, n_est, choice):
         X, y, test_size=test_sz, random_state=42, stratify=y
     )
 
-    smote = SMOTE(random_state=42)
-    X_res, y_res = smote.fit_resample(X_train, y_train)
-
+    # class_weight='balanced' handles imbalance without oversampling
     models = {}
 
     if choice in ["Random Forest", "Both"]:
-        rf = RandomForestClassifier(n_estimators=n_est, random_state=42, n_jobs=-1)
-        rf.fit(X_res, y_res)
+        rf = RandomForestClassifier(
+            n_estimators=n_est,
+            random_state=42,
+            n_jobs=-1,
+            class_weight="balanced",
+        )
+        rf.fit(X_train, y_train)
         models["Random Forest"] = rf
 
     if choice in ["Logistic Regression", "Both"]:
-        lr = LogisticRegression(max_iter=1000, random_state=42, n_jobs=-1)
-        lr.fit(X_res, y_res)
+        lr = LogisticRegression(
+            max_iter=1000,
+            random_state=42,
+            n_jobs=-1,
+            class_weight="balanced",
+        )
+        lr.fit(X_train, y_train)
         models["Logistic Regression"] = lr
 
     return models, X_test, y_test, scaler, df
@@ -125,7 +131,7 @@ if uploaded_file is None:
     1. Load Kaggle credit card dataset (284,807 transactions)  
     2. Exploratory Data Analysis  
     3. Stratified 80/20 train/test split  
-    4. SMOTE oversampling on training set only  
+    4. Class-weight balancing to handle imbalanced classes  
     5. Train Random Forest / Logistic Regression  
     6. Evaluate with precision, recall, F1, ROC-AUC  
     7. Interactive single-transaction prediction  
@@ -220,7 +226,7 @@ for name, model in models.items():
         sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax,
                     xticklabels=["Genuine", "Fraud"],
                     yticklabels=["Genuine", "Fraud"])
-        ax.set_title(f"Confusion Matrix")
+        ax.set_title("Confusion Matrix")
         ax.set_xlabel("Predicted"); ax.set_ylabel("Actual")
         st.pyplot(fig)
     with col_rpt:
